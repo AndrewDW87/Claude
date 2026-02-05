@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROCUREMENT QUEST - A Civil Service Adventure</title>
+<style>
+  @font-face {
+    font-family: 'ZXSpectrum';
+    src: url('data:font/woff2;base64,') format('woff2');
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: monospace;
+    overflow: hidden;
+  }
+
+  #screen {
+    width: 768px;
+    height: 576px;
+    background: #000;
+    border: 32px solid #ccc;
+    border-image: linear-gradient(135deg, #d4d4d4, #a0a0a0, #d4d4d4) 1;
+    position: relative;
+    overflow: hidden;
+    image-rendering: pixelated;
+  }
+
+  #scanlines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.08) 2px,
+      rgba(0, 0, 0, 0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #crt-flicker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 99;
+    animation: flicker 0.15s infinite;
+    opacity: 0.02;
+    background: #fff;
+  }
+
+  @keyframes flicker {
+    0% { opacity: 0.02; }
+    50% { opacity: 0.04; }
+    100% { opacity: 0.02; }
+  }
+
+  #game-area {
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ZX Spectrum colours */
+  .bright-black { color: #000; }
+  .bright-blue { color: #0022c7; }
+  .bright-red { color: #d62816; }
+  .bright-magenta { color: #d433ff; }
+  .bright-green { color: #00c525; }
+  .bright-cyan { color: #00c7c9; }
+  .bright-yellow { color: #ccc82a; }
+  .bright-white { color: #cacaca; }
+
+  .b-bright-black { color: #000; }
+  .b-bright-blue { color: #002bfb; }
+  .b-bright-red { color: #ff331c; }
+  .b-bright-magenta { color: #ff40ff; }
+  .b-bright-green { color: #00f92f; }
+  .b-bright-cyan { color: #00fbfe; }
+  .b-bright-yellow { color: #fffc36; }
+  .b-bright-white { color: #ffffff; }
+
+  .bg-blue { background-color: #002bfb; }
+  .bg-red { background-color: #ff331c; }
+  .bg-cyan { background-color: #00fbfe; }
+  .bg-yellow { background-color: #fffc36; }
+  .bg-green { background-color: #00f92f; }
+
+  .text-content {
+    font-family: monospace;
+    font-size: 16px;
+    line-height: 1.4;
+    letter-spacing: 1px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  #header-bar {
+    background: #002bfb;
+    color: #ffffff;
+    padding: 4px 8px;
+    font-family: monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+
+  #phase-bar {
+    background: #d62816;
+    color: #fffc36;
+    padding: 2px 8px;
+    font-family: monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+
+  #story-text {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #cacaca;
+    scrollbar-width: thin;
+    scrollbar-color: #002bfb #000;
+  }
+
+  #story-text::-webkit-scrollbar {
+    width: 6px;
+  }
+  #story-text::-webkit-scrollbar-track {
+    background: #000;
+  }
+  #story-text::-webkit-scrollbar-thumb {
+    background: #002bfb;
+  }
+
+  #choices-area {
+    padding: 8px;
+    border-top: 2px solid #002bfb;
+    min-height: 80px;
+  }
+
+  .choice-btn {
+    display: block;
+    width: 100%;
+    background: #000;
+    color: #00fbfe;
+    border: 1px solid #002bfb;
+    padding: 6px 12px;
+    margin: 4px 0;
+    font-family: monospace;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .choice-btn:hover {
+    background: #002bfb;
+    color: #ffffff;
+  }
+
+  .choice-btn:active {
+    background: #ff331c;
+    color: #ffffff;
+  }
+
+  .choice-key {
+    color: #fffc36;
+    font-weight: bold;
+  }
+
+  #stats-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: #111;
+    border-top: 1px solid #333;
+    font-family: monospace;
+    font-size: 11px;
+    color: #00f92f;
+    letter-spacing: 1px;
+  }
+
+  /* Loading screen */
+  #loading-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+  }
+
+  .loading-stripes {
+    width: 80%;
+    height: 16px;
+    margin: 2px 0;
+    animation: load-stripe 2s ease-in-out;
+    opacity: 0;
+  }
+
+  @keyframes load-stripe {
+    0% { opacity: 0; width: 0; }
+    50% { opacity: 1; width: 80%; }
+    100% { opacity: 1; width: 80%; }
+  }
+
+  #loading-text {
+    font-family: monospace;
+    color: #cacaca;
+    font-size: 14px;
+    margin-top: 24px;
+    letter-spacing: 2px;
+  }
+
+  .title-art {
+    font-family: monospace;
+    color: #fffc36;
+    font-size: 13px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: pre;
+    margin-bottom: 16px;
+  }
+
+  .typewriter {
+    overflow: hidden;
+    white-space: pre-wrap;
+  }
+
+  .cursor-blink {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: #cacaca;
+    animation: blink 0.5s step-end infinite;
+    vertical-align: text-bottom;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  .highlight {
+    color: #fffc36;
+    font-weight: bold;
+  }
+
+  .warning {
+    color: #ff331c;
+  }
+
+  .success {
+    color: #00f92f;
+  }
+
+  .info {
+    color: #00fbfe;
+  }
+
+  .dim {
+    color: #666;
+  }
+
+  @keyframes borderFlash {
+    0% { border-color: #ff331c; }
+    25% { border-color: #002bfb; }
+    50% { border-color: #00f92f; }
+    75% { border-color: #fffc36; }
+    100% { border-color: #ff331c; }
+  }
+
+  .flash-border {
+    animation: borderFlash 2s linear infinite;
+  }
+
+  /* Responsive */
+  @media (max-width: 832px) {
+    #screen {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <div id="scanlines"></div>
+  <div id="crt-flicker"></div>
+
+  <div id="loading-screen">
+    <div class="title-art" id="title-art"></div>
+    <div id="loading-stripes-container"></div>
+    <div id="loading-text">Program: procurement_quest<br>Bytes: 48K<br><br>Press any key to begin...</div>
+  </div>
+
+  <div id="game-area" style="display:none;">
+    <div id="header-bar">PROCUREMENT QUEST - A Civil Service Adventure</div>
+    <div id="phase-bar">PHASE: PLAN</div>
+    <div id="story-text"></div>
+    <div id="choices-area"></div>
+    <div id="stats-bar">
+      <span id="stat-morale">MORALE: ████████ 100%</span>
+      <span id="stat-budget">BUDGET: &pound;50M</span>
+      <span id="stat-compliance">COMPLIANCE: ██████ 80%</span>
+      <span id="stat-tea">TEA: ██████████ HOT</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// PROCUREMENT QUEST: A Civil Service Adventure
+// Based on the UK Government Sourcing Playbook
+// & Procurement Pathway
+// ============================================
+
+const TITLE_ART = `
+ ####  ####   ###   ###  #  #  ####  #### #   # #### #  # #####
+ #   # #   # #   # #   # #  #  #   # #    ## ## #    ## #   #
+ ####  ####  #   # #     #  #  ####  ###  # # # ###  # ##   #
+ #     #  #  #   # #   # #  #  #  #  #    #   # #    #  #   #
+ #     #   #  ###   ###   ##   #   # #### #   # #### #  #   #
+
+             Q   U   E   S   T
+`;
+
+// Game state
+let state = {
+  morale: 100,
+  budget: 50,
+  compliance: 80,
+  tea: 100,
+  phase: 'PLAN',
+  currentNode: 'start',
+  history: [],
+  flags: {},
+  teaCups: 0,
+  acronymsUsed: 0,
+  consultantsBriefed: 0,
+  meetingsAttended: 0
+};
+
+// ============================================
+// GAME STORY NODES
+// ============================================
+const nodes = {
+
+// ==========================================
+// INTRO
+// ==========================================
+start: {
+  phase: 'PLAN',
+  text: `<span class="highlight">MONDAY MORNING. 08:47.</span>
+<span class="info">Department of Administrative Efficiency</span>
+<span class="info">Marsham Street, London SW1</span>
+
+You are <span class="highlight">Pat Procurement</span>, newly promoted Grade 7 Commercial Officer at the Department of Administrative Efficiency (DAE).
+
+Your Director-General bursts in, coffee stain on their lanyard, and announces:
+
+<span class="warning">"We need to procure a new National Biscuit Distribution System. The current one was last updated in 2003 and still runs on Microsoft Access. The Minister wants it done by April. God help us all."</span>
+
+They leave. You stare at your monitor. The Procurement Pathway stares back.
+
+<span class="dim">Your tea is getting cold.</span>`,
+  choices: [
+    { text: '[1] Open the Procurement Pathway and begin with PLAN phase', next: 'plan_pipeline' },
+    { text: '[2] Make a fresh cup of tea first (priorities)', next: 'first_tea' },
+    { text: '[3] Check if "Biscuit Distribution" is actually in scope', next: 'scope_check' }
+  ]
+},
+
+first_tea: {
+  phase: 'PLAN',
+  text: `You head to the kitchen. The kettle takes 3 minutes. You use this time wisely to contemplate the enormity of government procurement.
+
+<span class="success">TEA STATUS: REFRESHED</span>
+<span class="info">+10 MORALE | Tea cups consumed: 1</span>
+
+The kitchen whiteboard reads: <span class="dim">"47 DAYS WITHOUT A PROCUREMENT INCIDENT"</span>
+
+Feeling fortified, you return to your desk. A Post-it note has appeared: <span class="warning">"Check the commercial pipeline - DG"</span>
+
+Right. The Sourcing Playbook says you need to start with the <span class="highlight">Commercial Pipeline</span>. Policy 1 of 11. Only 10 more to go.`,
+  onEnter: (s) => { s.morale = Math.min(100, s.morale + 10); s.tea = 100; s.teaCups++; },
+  choices: [
+    { text: '[1] Check the commercial pipeline for biscuit-related contracts', next: 'plan_pipeline' },
+    { text: '[2] Email the DG asking what "by April" actually means', next: 'ask_april' }
+  ]
+},
+
+scope_check: {
+  phase: 'PLAN',
+  text: `You spend 45 minutes trying to determine whether "Biscuit Distribution" falls under Category Tower 7 (Food & Catering) or Category Tower 12 (IT & Digital).
+
+You email Legal. Legal emails Policy. Policy emails Legal back. Everyone CCs everyone.
+
+<span class="warning">-5 MORALE | +1 Meeting scheduled</span>
+
+Eventually your line manager replies:
+
+<span class="info">"It's both. The biscuits are physical but the distribution system is digital. Congratulations, you now need TWO sourcing strategies. Or one very creative one."</span>
+
+The Procurement Act 2023 documentation does not have a specific section on biscuit distribution. You are <span class="highlight">in uncharted territory</span>.`,
+  onEnter: (s) => { s.morale -= 5; s.meetingsAttended++; },
+  choices: [
+    { text: '[1] Start with the commercial pipeline (play it safe)', next: 'plan_pipeline' },
+    { text: '[2] Attempt the creative single-strategy approach', next: 'creative_strategy' },
+    { text: '[3] Make tea while you think about it', next: 'think_tea' }
+  ]
+},
+
+ask_april: {
+  phase: 'PLAN',
+  text: `You send a carefully worded email to the DG:
+
+<span class="dim">"Dear DG, Could you clarify the timeline requirement? When you said 'by April', did you mean: (a) Contract awarded by April, (b) Service operational by April, (c) A vague aspiration to keep the Minister happy?"</span>
+
+The reply comes in 90 seconds:
+
+<span class="warning">"Yes."</span>
+
+Helpful. You make a mental note that <span class="highlight">defining the Business Need</span> (Playbook Policy 3) is going to be... interesting.
+
+Meanwhile, your inbox has 14 new emails, 11 of which contain the word "urgent" and 3 of which are about the office microwave.`,
+  onEnter: (s) => { s.morale -= 3; },
+  choices: [
+    { text: '[1] Ignore the inbox. Start the commercial pipeline.', next: 'plan_pipeline' },
+    { text: '[2] Respond to all 14 emails first (you know you should)', next: 'email_spiral' }
+  ]
+},
+
+email_spiral: {
+  phase: 'PLAN',
+  text: `<span class="warning">TWO HOURS LATER...</span>
+
+You have responded to all 14 emails. This has generated 31 more emails. One of them is a meeting invite for a "Pre-Meeting Meeting" to discuss the "Biscuit Transformation Programme."
+
+Someone has created a SharePoint site. It already has 4 folders, all empty except one containing a single PowerPoint with the title slide: <span class="dim">"National Biscuit Distribution System - DRAFT v0.1 - DO NOT CIRCULATE"</span>
+
+It has been circulated to 47 people.
+
+<span class="warning">-15 MORALE | +3 Meetings scheduled</span>
+
+Your tea is <span class="warning">STONE COLD</span>.`,
+  onEnter: (s) => { s.morale -= 15; s.tea = 0; s.meetingsAttended += 3; },
+  choices: [
+    { text: '[1] Enough. Open the Procurement Pathway. NOW.', next: 'plan_pipeline' },
+    { text: '[2] Make emergency tea before proceeding', next: 'emergency_tea' }
+  ]
+},
+
+emergency_tea: {
+  phase: 'PLAN',
+  text: `<span class="success">EMERGENCY TEA PROTOCOL ACTIVATED</span>
+
+You march to the kitchen with the determination of someone who has read all 11 key policies of the Sourcing Playbook.
+
+Yorkshire Tea. No sugar. Milk first (you're not a monster).
+
+<span class="success">TEA: RESTORED | +15 MORALE</span>
+
+In the kitchen, you overhear two G6s discussing the biscuit project:
+
+<span class="dim">"Apparently the Minister tried to use the current system to order HobNobs for a select committee and it delivered 4,000 packets of Rich Tea to the wrong building."</span>
+
+<span class="dim">"Classic."</span>
+
+Right. This project genuinely matters. Back to work.`,
+  onEnter: (s) => { s.morale = Math.min(100, s.morale + 15); s.tea = 100; s.teaCups++; },
+  choices: [
+    { text: '[1] Begin the commercial pipeline review', next: 'plan_pipeline' }
+  ]
+},
+
+think_tea: {
+  phase: 'PLAN',
+  text: `You make tea and think. The Sourcing Playbook's <span class="highlight">Policy 1: Commercial Pipelines</span> says you should publish your pipeline for the next 18 months minimum.
+
+As you sip, a profound thought strikes: the biscuit system IS the pipeline. It's pipelines all the way down.
+
+<span class="success">TEA: HOT | +5 MORALE | EXISTENTIAL CRISIS: MILD</span>
+
+Your colleague Dave from Digital pops his head round: <span class="info">"Heard you got the biscuit gig. Want me to check if GDS has any design patterns for confectionery logistics?"</span>`,
+  onEnter: (s) => { s.morale += 5; s.tea = 100; s.teaCups++; },
+  choices: [
+    { text: '[1] Accept Dave\'s help gratefully', next: 'dave_helps' },
+    { text: '[2] Politely decline - too early for Digital involvement', next: 'plan_pipeline' }
+  ]
+},
+
+dave_helps: {
+  phase: 'PLAN',
+  text: `Dave disappears and returns 20 minutes later with:
+- A GDS service assessment report from 2019 about "Biscuit-as-a-Service"
+- A link to a discovery sprint that was abandoned in 2021
+- Three Post-it notes that say "User Need: I need biscuits"
+
+<span class="info">"Turns out DCMS tried this in 2019. They got to Alpha but the funding was reallocated to... something about blockchain."</span>
+
+This is actually useful. There's prior art. The Sourcing Playbook's <span class="highlight">Policy 2: Market Health Assessment</span> requires you to assess what the market can deliver.
+
+<span class="success">+10 COMPLIANCE | Dave added to project team</span>`,
+  onEnter: (s) => { s.compliance = Math.min(100, s.compliance + 10); s.flags.dave_on_team = true; },
+  choices: [
+    { text: '[1] Use this intel to inform the pipeline review', next: 'plan_pipeline' },
+    { text: '[2] Dig deeper into the 2019 Biscuit-as-a-Service discovery', next: 'baas_discovery' }
+  ]
+},
+
+baas_discovery: {
+  phase: 'PLAN',
+  text: `You pull up the 2019 discovery report. It's 87 pages. The executive summary reads:
+
+<span class="dim">"The UK Government spends approximately &pound;42M annually on biscuit-related activities across 47 departments. Distribution inefficiencies account for 23% wastage. The current system, BISCUIT-1 (Built In Sinclair Computer Using Integrated Technology, circa 2003), cannot be upgraded as the original developer has retired to Dorset and 'lost the source code.'"</span>
+
+<span class="highlight">KEY FINDING:</span> Three suppliers were identified as capable of delivering a modern system. Two have since been acquired by the same company.
+
+This is gold dust for your <span class="highlight">Market Health Assessment</span>.
+
+<span class="success">+15 COMPLIANCE | Market intelligence acquired</span>`,
+  onEnter: (s) => { s.compliance = Math.min(100, s.compliance + 15); s.flags.has_market_intel = true; },
+  choices: [
+    { text: '[1] Proceed to the pipeline review with this intelligence', next: 'plan_pipeline' }
+  ]
+},
+
+creative_strategy: {
+  phase: 'PLAN',
+  text: `You draft a "Unified Biscuit-Digital Strategy" that combines physical distribution with digital systems under one contract.
+
+You send it to the Commercial Director for review. The response:
+
+<span class="warning">"This is either brilliant or career-ending. Possibly both. Have you done the Pipeline review yet? Sourcing Playbook Policy 1 exists for a reason."</span>
+
+<span class="warning">-5 COMPLIANCE (jumped ahead of process)</span>
+<span class="info">But your creative thinking has been noted...</span>`,
+  onEnter: (s) => { s.compliance -= 5; s.flags.creative_thinker = true; },
+  choices: [
+    { text: '[1] Chastened, begin the proper pipeline review', next: 'plan_pipeline' },
+    { text: '[2] Argue your case further (risky)', next: 'argue_case' }
+  ]
+},
+
+argue_case: {
+  phase: 'PLAN',
+  text: `You compose an impassioned 2,000-word email defending your unified approach, citing precedent from the Ministry of Defence's "Sandwich and Satellite" combined procurement of 2017.
+
+The Commercial Director replies:
+
+<span class="warning">"That procurement took 4 years and we still don't have the sandwiches. Follow the Playbook. That's an instruction."</span>
+
+<span class="warning">-10 MORALE | -10 COMPLIANCE</span>
+
+Your line manager sends you a sympathetic Teams message: <span class="dim">"Just do the pipeline, Pat. We've all been there."</span>`,
+  onEnter: (s) => { s.morale -= 10; s.compliance -= 10; },
+  choices: [
+    { text: '[1] Swallow your pride. Start the pipeline review.', next: 'plan_pipeline' }
+  ]
+},
+
+// ==========================================
+// PLAN PHASE - PIPELINE
+// ==========================================
+plan_pipeline: {
+  phase: 'PLAN',
+  text: `<span class="highlight">═══ PHASE 1: PLAN ═══</span>
+<span class="info">COMMERCIAL PIPELINE REVIEW</span>
+<span class="dim">Sourcing Playbook Policy 1: Commercial Pipelines</span>
+
+You open the department's commercial pipeline. According to the Playbook, you should be publishing upcoming procurements for the next <span class="highlight">18 months minimum</span>, ideally 3-5 years.
+
+The department's pipeline spreadsheet was last updated... <span class="warning">seven months ago</span>. It lists:
+- "New photocopiers" (completed 2024)
+- "Biscuit thing???" (added last week, by the DG apparently)
+- "TBC" (no further details)
+
+The Playbook says the market needs to be aware of upcoming projects. Currently, the market is aware of nothing.
+
+You need to decide how to publish this pipeline.`,
+  choices: [
+    { text: '[1] Publish immediately on Contracts Finder (quick & compliant)', next: 'publish_pipeline_quick' },
+    { text: '[2] Organise a Market Day event to brief suppliers properly', next: 'market_day' },
+    { text: '[3] Update the pipeline properly first, THEN publish', next: 'update_pipeline' }
+  ]
+},
+
+publish_pipeline_quick: {
+  phase: 'PLAN',
+  text: `You draft a pipeline notice and publish it on Contracts Finder:
+
+<span class="info">"The Department of Administrative Efficiency intends to procure a National Biscuit Distribution System. Estimated value: &pound;45-55M. Expected publication: Q2 2025/26."</span>
+
+Within 24 hours, your inbox contains:
+- 14 expressions of interest
+- 3 requests for "pre-market engagement"
+- 1 email from a company called "BiscuitBlockchain Ltd"
+- 1 FOI request about government biscuit expenditure
+
+<span class="success">+10 COMPLIANCE</span> - Pipeline published!
+<span class="warning">But was it too hasty?</span>
+
+The Commercial Director notes you didn't do a <span class="highlight">Market Health Assessment</span> first. <span class="dim">Playbook Policy 2 exists for a reason, Pat.</span>`,
+  onEnter: (s) => { s.compliance += 10; s.flags.published_early = true; },
+  choices: [
+    { text: '[1] Crack on with the Market Health Assessment', next: 'market_assessment' },
+    { text: '[2] Respond to BiscuitBlockchain Ltd (curiosity wins)', next: 'biscuit_blockchain' }
+  ]
+},
+
+biscuit_blockchain: {
+  phase: 'PLAN',
+  text: `Against your better judgement, you open the email from BiscuitBlockchain Ltd:
+
+<span class="dim">"Dear Procurement Professional, Our patented Web3-enabled Biscuit Ledger Technology (BLT) can revolutionise your biscuit supply chain. Every HobNob tracked on an immutable distributed ledger. Rich Tea provenance guaranteed. Jaffa Cake classification disputes settled by smart contract (cake OR biscuit - let the blockchain decide)."</span>
+
+You close the email.
+
+<span class="dim">You will never get those 30 seconds back.</span>
+
+<span class="warning">-2 MORALE (time wasted on nonsense)</span>
+
+Right. <span class="highlight">Market Health Assessment</span>. Properly this time.`,
+  onEnter: (s) => { s.morale -= 2; },
+  choices: [
+    { text: '[1] Proceed to Market Health Assessment', next: 'market_assessment' }
+  ]
+},
+
+market_day: {
+  phase: 'PLAN',
+  text: `You organise a <span class="highlight">Market Day</span> - inviting potential suppliers to learn about the upcoming procurement.
+
+You book a conference room. You order biscuits for the biscuit procurement market day. The irony is not lost on anyone.
+
+<span class="info">12 suppliers attend.</span> They range from:
+- Massive Global Corp PLC ("We do everything")
+- Two SMEs who actually specialise in food logistics tech
+- A Big 4 consultancy (there to sell consulting, obviously)
+- BiscuitBlockchain Ltd (they got in somehow)
+
+The SMEs ask brilliant questions. Massive Global Corp asks when the RFP drops. The consultancy suggests you need a "Strategic Biscuit Transformation Roadmap" before procuring anything.
+
+<span class="success">+15 COMPLIANCE | +10 MORALE</span>
+<span class="info">Excellent market engagement (Playbook Policies 1 & 2)</span>`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 10; s.flags.did_market_day = true; },
+  choices: [
+    { text: '[1] Use the market intelligence for your assessment', next: 'market_assessment' },
+    { text: '[2] Commission the "Strategic Biscuit Transformation Roadmap"', next: 'consultant_trap' }
+  ]
+},
+
+consultant_trap: {
+  phase: 'PLAN',
+  text: `You commission the Big 4 consultancy to produce a "Strategic Biscuit Transformation Roadmap."
+
+<span class="warning">Cost: &pound;500,000</span>
+<span class="warning">Timeline: 12 weeks</span>
+
+Eight weeks later, they deliver a 200-slide PowerPoint. Slide 1: "BISCUIT TRANSFORMATION: A JOURNEY." Slide 200: "NEXT STEPS: Commission Phase 2 of this report."
+
+The actual content can be summarised as: <span class="dim">"You need a new system. We recommend you procure one."</span>
+
+Your DG is furious: <span class="warning">"Half a million quid to tell us what we already knew? The Consultancy Playbook exists for EXACTLY this reason!"</span>
+
+<span class="warning">-&pound;0.5M BUDGET | -20 MORALE | -15 COMPLIANCE</span>
+<span class="dim">The Consultancy Playbook Policy 4 says you should have done a make/buy analysis first...</span>`,
+  onEnter: (s) => { s.budget -= 0.5; s.morale -= 20; s.compliance -= 15; s.consultantsBriefed++; },
+  choices: [
+    { text: '[1] Learn from this. Do the Market Health Assessment properly.', next: 'market_assessment' },
+    { text: '[2] Try to salvage useful data from the 200 slides', next: 'salvage_slides' }
+  ]
+},
+
+salvage_slides: {
+  phase: 'PLAN',
+  text: `You spend a weekend going through all 200 slides. Buried on slide 147, between a stock photo of people shaking hands and a Venn diagram labelled "Synergies," you find:
+
+<span class="success">An actual useful market analysis.</span>
+
+It identifies 5 credible suppliers, estimates implementation costs at &pound;35-45M, and notes that the biggest risk is integration with the legacy BISCUIT-1 system.
+
+It's not worth &pound;500K, but it's not worthless either.
+
+<span class="info">+5 COMPLIANCE (some market data recovered)</span>
+
+Your tea has gone cold during this ordeal.`,
+  onEnter: (s) => { s.compliance += 5; s.tea = 0; s.flags.has_market_intel = true; },
+  choices: [
+    { text: '[1] Use this to inform the Market Health Assessment', next: 'market_assessment' }
+  ]
+},
+
+update_pipeline: {
+  phase: 'PLAN',
+  text: `<span class="success">GOOD CHOICE.</span> The Playbook says pipelines should cover 18 months minimum.
+
+You spend a day updating the departmental pipeline properly:
+
+<span class="info">COMMERCIAL PIPELINE 2025/26:</span>
+- Q2: National Biscuit Distribution System (&pound;45-55M)
+- Q3: Office Supplies Framework (&pound;2M)
+- Q4: IT Support Contract renewal (&pound;8M)
+- Q1 2027: Canteen Services (&pound;3M)
+
+You publish on Contracts Finder AND hold a virtual pipeline briefing.
+
+<span class="success">+20 COMPLIANCE | The Commercial Director is impressed.</span>
+
+<span class="dim">"Finally, someone who reads the Playbook."</span>
+
+Now for the <span class="highlight">Market Health Assessment</span>.`,
+  onEnter: (s) => { s.compliance += 20; },
+  choices: [
+    { text: '[1] Proceed to Market Health Assessment', next: 'market_assessment' }
+  ]
+},
+
+// ==========================================
+// DEFINE PHASE - MARKET ASSESSMENT
+// ==========================================
+market_assessment: {
+  phase: 'DEFINE',
+  text: `<span class="highlight">═══ PHASE 2: DEFINE ═══</span>
+<span class="info">MARKET HEALTH & CAPABILITY ASSESSMENT</span>
+<span class="dim">Sourcing Playbook Policy 2</span>
+
+The Playbook requires you to assess <span class="highlight">market health</span> - barriers to entry, innovation opportunities, and competition levels.
+
+Your research reveals the Biscuit Distribution Technology market has:
+- <span class="success">3 capable suppliers</span> (down from 5 after acquisitions)
+- <span class="warning">1 dominant player</span> (MegaLogistics PLC - 70% market share)
+- <span class="info">2 innovative SMEs</span> (CrumbTech and DunkData)
+- <span class="warning">Barrier to entry: HIGH</span> (specialist domain knowledge required)
+
+The Sourcing Playbook says you should design strategies to <span class="highlight">maintain a healthy market</span>.
+
+How do you structure this procurement to encourage competition?`,
+  choices: [
+    { text: '[1] Split into lots to give SMEs a chance', next: 'split_lots' },
+    { text: '[2] Single contract - let the market compete', next: 'single_contract' },
+    { text: '[3] Consult with the SMEs directly first', next: 'sme_consultation' }
+  ]
+},
+
+split_lots: {
+  phase: 'DEFINE',
+  text: `<span class="success">EXCELLENT THINKING.</span>
+
+You propose splitting the procurement into lots:
+<span class="info">Lot 1:</span> Core Distribution Platform (&pound;30M)
+<span class="info">Lot 2:</span> Data Analytics & Reporting (&pound;10M)
+<span class="info">Lot 3:</span> User Interface & Accessibility (&pound;10M)
+
+This lets SMEs bid for Lots 2 and 3 while the larger players compete for Lot 1. It promotes <span class="highlight">market health</span> and encourages innovation.
+
+The Social Value Model (PPN 06/20) means you can also weight for SME involvement.
+
+<span class="success">+15 COMPLIANCE | +10 MORALE</span>
+<span class="info">Policy 2 satisfied: Market health maintained</span>
+
+The Commercial Director sends a rare email of praise: <span class="dim">"Good work, Pat. Now do the PVR."</span>
+
+The <span class="warning">Project Validation Review</span> awaits...`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 10; s.flags.split_lots = true; },
+  choices: [
+    { text: '[1] Prepare for the Project Validation Review', next: 'pvr_prep' },
+    { text: '[2] Define the business need first (proper order)', next: 'business_need' }
+  ]
+},
+
+single_contract: {
+  phase: 'DEFINE',
+  text: `You opt for a single contract. The rationale: simpler management, single point of accountability.
+
+The SME community is disappointed. CrumbTech tweets: <span class="dim">"Another government mega-contract shutting out small business. #ProcurementFail"</span>
+
+Your Social Value assessment looks thin. The NAO raises an eyebrow.
+
+<span class="warning">-10 COMPLIANCE | -5 MORALE</span>
+<span class="dim">The Playbook specifically warns against strategies that reduce competition...</span>
+
+Your line manager suggests you "might want to reconsider the lot structure before the PVR."`,
+  onEnter: (s) => { s.compliance -= 10; s.morale -= 5; },
+  choices: [
+    { text: '[1] Reconsider - split into lots after all', next: 'split_lots' },
+    { text: '[2] Stand firm - single contract with SME subcontracting requirements', next: 'stand_firm_single' },
+    { text: '[3] Define the business need properly before deciding', next: 'business_need' }
+  ]
+},
+
+stand_firm_single: {
+  phase: 'DEFINE',
+  text: `You add a requirement for 33% SME subcontracting to the single contract. It's a compromise.
+
+The Cabinet Office Commercial team reviews and says: <span class="info">"Acceptable, but we'll be watching the social value scores carefully at evaluation."</span>
+
+<span class="info">+5 COMPLIANCE (partial recovery)</span>
+
+Let's move on. You need to define what this system actually does before you can procure it.`,
+  onEnter: (s) => { s.compliance += 5; },
+  choices: [
+    { text: '[1] Define the business need', next: 'business_need' }
+  ]
+},
+
+sme_consultation: {
+  phase: 'DEFINE',
+  text: `You arrange preliminary market engagement meetings with CrumbTech and DunkData.
+
+<span class="info">CrumbTech:</span> "We built a biscuit logistics platform for Tesco. It handles 2 million deliveries a day. We're small but we're brilliant."
+
+<span class="info">DunkData:</span> "Our analytics engine can predict biscuit demand patterns. We correctly forecast the 2024 Bourbon Cream shortage three months early."
+
+Both express concern about being locked out by a single large contract.
+
+<span class="success">+10 COMPLIANCE (market consultation done properly)</span>
+<span class="info">Sourcing Playbook: "Consider preliminary market engagement to test requirements and stimulate interest"</span>
+
+This intelligence will help you design the procurement.`,
+  onEnter: (s) => { s.compliance += 10; s.flags.consulted_smes = true; },
+  choices: [
+    { text: '[1] Use this to split into lots', next: 'split_lots' },
+    { text: '[2] Define the business need now', next: 'business_need' }
+  ]
+},
+
+// ==========================================
+// DEFINE PHASE - BUSINESS NEED
+// ==========================================
+business_need: {
+  phase: 'DEFINE',
+  text: `<span class="info">DEFINING THE BUSINESS NEED</span>
+<span class="dim">Sourcing Playbook: Define requirements and success criteria</span>
+
+You convene a <span class="highlight">Requirements Workshop</span>. Attendees:
+- You (Commercial)
+- Dave (Digital) ${state.flags.dave_on_team ? '- already on board' : ''}
+- Sandra from Finance ("How much is this going to cost?")
+- Keith from Operations ("The current system literally caught fire last Tuesday")
+- A policy colleague who wants to know about "strategic alignment"
+
+Keith's contribution is most illuminating:
+
+<span class="warning">"Last month, the system routed 300 packets of Digestives to the Treasury. They'd ordered 30. The Chancellor's office was knee-deep in biscuits. It was NOT a good look."</span>
+
+You need to produce a <span class="highlight">Should Cost Model</span> (Policy 5).`,
+  choices: [
+    { text: '[1] Build the Should Cost Model based on the 2019 discovery', next: 'should_cost_good' },
+    { text: '[2] Ask Finance to produce the Should Cost Model', next: 'should_cost_finance' },
+    { text: '[3] Wing it with a rough estimate', next: 'should_cost_wing' }
+  ]
+},
+
+should_cost_good: {
+  phase: 'DEFINE',
+  text: `You build a thorough <span class="highlight">Should Cost Model</span> using:
+${state.flags.has_market_intel ? '<span class="success">- Market intelligence from your earlier research</span>' : '- Available market data'}
+- The 2019 Biscuit-as-a-Service discovery findings
+- Benchmarks from similar logistics platform procurements
+- Dave's technical architecture estimates
+
+<span class="info">SHOULD COST MODEL:</span>
+  Platform development:    &pound;18-22M
+  Integration (BISCUIT-1): &pound;5-8M
+  Testing & deployment:    &pound;3-5M
+  Training & change mgmt:  &pound;2-3M
+  5-year support:          &pound;10-15M
+  <span class="highlight">TOTAL ESTIMATED:         &pound;38-53M</span>
+
+Sandra from Finance nods approvingly: <span class="dim">"First time someone's given me a range I can actually work with."</span>
+
+<span class="success">+20 COMPLIANCE | +10 MORALE</span>
+<span class="info">Policy 5: Should Cost Model prevents "low-cost bid bias"</span>`,
+  onEnter: (s) => { s.compliance += 20; s.morale += 10; },
+  choices: [
+    { text: '[1] Move to Delivery Model Assessment', next: 'delivery_model' },
+    { text: '[2] Consider whether to pilot first (Policy 6)', next: 'pilot_decision' }
+  ]
+},
+
+should_cost_finance: {
+  phase: 'DEFINE',
+  text: `Sandra from Finance looks at you over her glasses.
+
+<span class="warning">"You want ME to produce the Should Cost Model? That's a Commercial responsibility. I'll validate it, but I'm not building it for you."</span>
+
+She's right. The Sourcing Playbook is clear: the <span class="highlight">commercial team leads</span> on Should Cost Models.
+
+<span class="warning">-5 COMPLIANCE | -5 MORALE (mild embarrassment)</span>
+
+Sandra does, however, share the finance team's budget ceiling: <span class="highlight">&pound;50M capital, plus &pound;5M/year resource.</span> That's useful.
+
+You'll need to build the model yourself.`,
+  onEnter: (s) => { s.compliance -= 5; s.morale -= 5; },
+  choices: [
+    { text: '[1] Build the Should Cost Model properly', next: 'should_cost_good' },
+    { text: '[2] Make tea and build it after', next: 'tea_then_model' }
+  ]
+},
+
+tea_then_model: {
+  phase: 'DEFINE',
+  text: `<span class="success">Tea consumed. Wisdom gained.</span>
+<span class="info">+5 MORALE | Tea cups: ${state.teaCups + 1}</span>
+
+Fortified by Yorkshire Tea, you build the Should Cost Model.
+
+<span class="info">SHOULD COST MODEL (post-tea clarity):</span>
+  Platform development:    &pound;18-22M
+  Integration (BISCUIT-1): &pound;5-8M
+  Testing & deployment:    &pound;3-5M
+  Training & change mgmt:  &pound;2-3M
+  5-year support:          &pound;10-15M
+  <span class="highlight">TOTAL ESTIMATED:         &pound;38-53M</span>
+
+<span class="success">+15 COMPLIANCE | Should Cost Model complete</span>`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 5; s.tea = 100; s.teaCups++; },
+  choices: [
+    { text: '[1] Move to Delivery Model Assessment', next: 'delivery_model' },
+    { text: '[2] Consider whether to pilot first', next: 'pilot_decision' }
+  ]
+},
+
+should_cost_wing: {
+  phase: 'DEFINE',
+  text: `You write "&pound;50M-ish" on a Post-it note and stick it to your monitor.
+
+The <span class="warning">NAO auditor</span> who happens to be doing a departmental review walks past your desk. They stop. They read the Post-it. They write something in their notebook.
+
+<span class="warning">-20 COMPLIANCE</span>
+
+<span class="warning">"That is not a Should Cost Model."</span>
+
+They're right. Policy 5 requires you to forecast <span class="highlight">whole life costs and risks</span>. A Post-it note with "&pound;50M-ish" does not constitute a forecast.
+
+Your line manager appears: <span class="dim">"Pat. Please tell me you didn't just... never mind. Build the model. Properly."</span>`,
+  onEnter: (s) => { s.compliance -= 20; },
+  choices: [
+    { text: '[1] Build the Should Cost Model properly (chastened)', next: 'should_cost_good' }
+  ]
+},
+
+// ==========================================
+// DEFINE PHASE - DELIVERY MODEL & PILOT
+// ==========================================
+delivery_model: {
+  phase: 'DEFINE',
+  text: `<span class="info">DELIVERY MODEL ASSESSMENT</span>
+<span class="dim">Sourcing Playbook Policy 4</span>
+
+The Playbook requires you to assess whether to <span class="highlight">insource, outsource, or use a mixed model</span>.
+
+Options on the table:
+<span class="info">A)</span> Full outsource to a single provider
+<span class="info">B)</span> Insource: build it with civil servants & contractors
+<span class="info">C)</span> Mixed: platform outsourced, operations insourced
+<span class="info">D)</span> Use an existing framework (CCS has one for tech)
+
+Keith from Operations chips in: <span class="dim">"We couldn't build a paper aeroplane in-house right now. We don't have the tech skills."</span>
+
+Dave from Digital disagrees: <span class="dim">"We could build the frontend in-house if we hired 5 developers."</span>
+
+Sandra from Finance: <span class="dim">"You're not getting 5 new headcount."</span>`,
+  choices: [
+    { text: '[1] Mixed model - outsource platform, insource operations', next: 'mixed_model' },
+    { text: '[2] Full outsource via CCS Technology Framework', next: 'full_outsource' },
+    { text: '[3] Commission a pilot first (Policy 6)', next: 'pilot_decision' }
+  ]
+},
+
+mixed_model: {
+  phase: 'DEFINE',
+  text: `The <span class="highlight">Mixed Delivery Model</span> is a pragmatic choice:
+
+- Platform built by external supplier
+- Day-to-day operations managed by civil servants
+- Integration work shared between supplier and Dave's team
+
+The Sourcing Playbook likes this approach because:
+- Retains <span class="success">institutional knowledge</span> in-house
+- Prevents <span class="success">total supplier dependency</span>
+- Provides <span class="success">career development</span> for civil servants
+
+Dave is delighted: <span class="dim">"Finally, something interesting to do."</span>
+
+<span class="success">+15 COMPLIANCE | +10 MORALE</span>
+<span class="info">Delivery Model Assessment: COMPLETE</span>
+
+Now: should you pilot this before going to full procurement?`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 10; s.flags.mixed_model = true; },
+  choices: [
+    { text: '[1] Yes, run a pilot first (Policy 6)', next: 'pilot_decision' },
+    { text: '[2] No time - go straight to sourcing strategy', next: 'sourcing_strategy' }
+  ]
+},
+
+full_outsource: {
+  phase: 'DEFINE',
+  text: `Full outsource via the <span class="highlight">CCS Technology Services 3 Framework</span>.
+
+It's clean. It's simple. Someone else's problem to build.
+
+But the Sourcing Playbook warns about <span class="warning">supplier dependency</span> and the importance of retaining <span class="highlight">intelligent client capability</span>.
+
+Dave looks disappointed: <span class="dim">"So I just... manage the contract? Forever?"</span>
+
+Keith is happy though: <span class="dim">"As long as the biscuits arrive, I don't care who builds it."</span>
+
+<span class="info">+5 COMPLIANCE | -5 MORALE (Dave is sad)</span>`,
+  onEnter: (s) => { s.compliance += 5; s.morale -= 5; s.flags.full_outsource = true; },
+  choices: [
+    { text: '[1] Run a pilot before committing (Policy 6)', next: 'pilot_decision' },
+    { text: '[2] Proceed directly to sourcing strategy', next: 'sourcing_strategy' }
+  ]
+},
+
+pilot_decision: {
+  phase: 'DEFINE',
+  text: `<span class="info">TO PILOT OR NOT TO PILOT?</span>
+<span class="dim">Sourcing Playbook Policy 6: Pilots</span>
+
+The Playbook says: <span class="highlight">"Where contracting authorities are outsourcing a service for the first time, a pilot should be run."</span>
+
+This IS technically a first-time outsource of biscuit distribution technology. The last system was built in-house by a man called Gerald in 2003.
+
+A pilot would:
+<span class="success">+ Test assumptions before committing &pound;50M</span>
+<span class="success">+ Provide analytical data for the full procurement</span>
+<span class="warning">- Add 3-6 months to the timeline</span>
+<span class="warning">- The Minister wants this "by April"</span>
+
+The DG's voice echoes: <span class="dim">"By April..."</span>`,
+  choices: [
+    { text: '[1] Run the pilot. Better safe than sorry.', next: 'run_pilot' },
+    { text: '[2] Skip the pilot. No time. The Minister awaits.', next: 'skip_pilot' },
+    { text: '[3] Propose a "Mini-Pilot" - 6 weeks, one department', next: 'mini_pilot' }
+  ]
+},
+
+run_pilot: {
+  phase: 'DEFINE',
+  text: `You propose a 3-month pilot with one department (DEFRA, because they already have strong opinions about biscuits).
+
+The Minister's Special Adviser calls: <span class="warning">"Three months? The Minister said APRIL."</span>
+
+You explain that Policy 6 of the Sourcing Playbook recommends pilots for first-time outsourcing. You mention the NAO. You mention the Public Accounts Committee.
+
+There is a long pause.
+
+<span class="info">"...Fine. But if this goes wrong, it's YOUR career on the line."</span>
+
+The pilot proceeds. It reveals that DEFRA's biscuit demand patterns are <span class="highlight">wildly different from HMT's</span>. The original requirements would have been wrong.
+
+<span class="success">+25 COMPLIANCE | +10 MORALE</span>
+<span class="info">The pilot just saved you from a &pound;50M mistake.</span>`,
+  onEnter: (s) => { s.compliance += 25; s.morale += 10; s.flags.did_pilot = true; },
+  choices: [
+    { text: '[1] Use pilot data to refine requirements and proceed to sourcing', next: 'sourcing_strategy' }
+  ]
+},
+
+skip_pilot: {
+  phase: 'DEFINE',
+  text: `You skip the pilot. The April deadline looms.
+
+The Sourcing Playbook looks at you reproachfully from your desk.
+
+<span class="warning">-15 COMPLIANCE (Policy 6 not followed)</span>
+
+Your risk register gains a new entry: <span class="warning">"Requirements not validated through pilot. HIGH RISK."</span>
+
+The IPA (Infrastructure & Projects Authority) reviewers make a note. This will come up at the <span class="highlight">Project Validation Review</span>.
+
+At least you're moving quickly. The Minister will be pleased. For now.`,
+  onEnter: (s) => { s.compliance -= 15; s.flags.skipped_pilot = true; },
+  choices: [
+    { text: '[1] Proceed to sourcing strategy (moving fast)', next: 'sourcing_strategy' }
+  ]
+},
+
+mini_pilot: {
+  phase: 'DEFINE',
+  text: `<span class="success">INSPIRED COMPROMISE.</span>
+
+A 6-week "Sprint Pilot" with two departments: DEFRA and HMRC. Enough to test assumptions, fast enough to keep the Minister happy.
+
+You present this to the DG. They nod slowly.
+
+<span class="info">"Six weeks. Not a day more. And I want weekly updates."</span>
+
+The mini-pilot reveals three critical insights:
+1. HMRC needs audit trails on every biscuit (of course they do)
+2. DEFRA wants seasonal variation (more HobNobs in winter)
+3. Both departments independently request "an emergency Jaffa Cake button"
+
+<span class="success">+20 COMPLIANCE | +15 MORALE</span>
+<span class="info">Pilot delivered on time with actionable insights!</span>`,
+  onEnter: (s) => { s.compliance += 20; s.morale += 15; s.flags.did_pilot = true; },
+  choices: [
+    { text: '[1] Incorporate findings into the sourcing strategy', next: 'sourcing_strategy' }
+  ]
+},
+
+// ==========================================
+// DEFINE PHASE - SOURCING STRATEGY
+// ==========================================
+sourcing_strategy: {
+  phase: 'DEFINE',
+  text: `<span class="info">SOURCING STRATEGY</span>
+<span class="dim">Sourcing Playbook: Identify route to market</span>
+
+Time to decide HOW you'll actually buy this thing. The Playbook says to consider <span class="highlight">whole life cost</span> and identify the appropriate route to market.
+
+Options:
+<span class="info">A) Open Procedure</span> - advertise on Find a Tender, anyone can bid. Transparent but slow.
+
+<span class="info">B) Competitive Procedure with Negotiation</span> - shortlist first, then negotiate. Flexible under the Procurement Act 2023.
+
+<span class="info">C) CCS Framework Call-Off</span> - use an existing framework. Quick but limited to framework suppliers.
+
+<span class="info">D) Dynamic Purchasing System</span> - open marketplace. New under the Procurement Act 2023.
+
+Your compliance score is <span class="${state.compliance >= 70 ? 'success' : 'warning'}">${state.compliance}%</span>. The PVR panel will scrutinise your choice.`,
+  choices: [
+    { text: '[1] Competitive Procedure with Negotiation (flexible, thorough)', next: 'competitive_negotiation' },
+    { text: '[2] Open Procedure (maximum transparency)', next: 'open_procedure' },
+    { text: '[3] CCS Framework (quick, the Minister will love it)', next: 'framework_route' }
+  ]
+},
+
+competitive_negotiation: {
+  phase: 'DEFINE',
+  text: `<span class="success">STRONG CHOICE for a complex procurement.</span>
+
+The <span class="highlight">Competitive Procedure with Negotiation</span> allows you to:
+- Shortlist qualified suppliers first
+- Negotiate on technical solutions and pricing
+- Refine requirements through dialogue
+- Still maintain competition throughout
+
+Under the <span class="highlight">Procurement Act 2023</span>, this procedure gives you the flexibility to explore solutions with the market.
+
+You draft the sourcing strategy document. It's 40 pages. Dave contributes the technical evaluation criteria. Sandra adds the financial assessment framework.
+
+The KPIs (Policy 7) include:
+- 99.5% biscuit delivery accuracy
+- Next-day delivery to all departments
+- Real-time stock visibility
+- The "Emergency Jaffa Cake Button" response time: <60 minutes
+
+<span class="success">+15 COMPLIANCE | +10 MORALE</span>
+
+Now for the dreaded <span class="warning">Project Validation Review</span>...`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 10; s.flags.route = 'competitive'; },
+  choices: [
+    { text: '[1] Face the PVR panel', next: 'pvr_prep' }
+  ]
+},
+
+open_procedure: {
+  phase: 'DEFINE',
+  text: `Maximum transparency. The <span class="highlight">Open Procedure</span>: anyone can bid, everything published, nowhere to hide.
+
+It's democratic. It's open. It also means you might get 47 bids to evaluate, including BiscuitBlockchain Ltd.
+
+You set the evaluation criteria:
+- Technical capability: 40%
+- Price: 30%
+- Social value: 20%
+- Innovation: 10%
+
+The KPIs include 99.5% delivery accuracy and the now-mandatory "Emergency Jaffa Cake Button."
+
+<span class="info">+10 COMPLIANCE</span>
+<span class="warning">Evaluation resource requirements: HIGH</span>
+
+You're going to need more evaluators. And more tea.`,
+  onEnter: (s) => { s.compliance += 10; s.flags.route = 'open'; },
+  choices: [
+    { text: '[1] Prepare for the PVR', next: 'pvr_prep' }
+  ]
+},
+
+framework_route: {
+  phase: 'DEFINE',
+  text: `The <span class="highlight">CCS Technology Services 3 Framework</span> - pre-approved suppliers, streamlined process.
+
+Quick? Yes. But:
+
+<span class="warning">PROBLEM:</span> Only 2 of the 3 capable suppliers are on the framework. CrumbTech (the innovative SME) is not.
+
+${state.flags.consulted_smes ? '<span class="warning">CrumbTech, who you spoke to and who seemed really capable, would be excluded.</span>' : ''}
+
+The Sourcing Playbook's Policy 2 (Market Health) warns about strategies that <span class="warning">reduce competition</span>.
+
+Your Commercial Director asks: <span class="dim">"Are you sure a framework is appropriate for a &pound;50M novel procurement? The Playbook suggests frameworks are better for commoditised services..."</span>`,
+  choices: [
+    { text: '[1] Switch to Competitive Procedure with Negotiation', next: 'competitive_negotiation' },
+    { text: '[2] Stick with the framework (speed is everything)', next: 'framework_commit' }
+  ]
+},
+
+framework_commit: {
+  phase: 'DEFINE',
+  text: `You commit to the framework route. It's faster but narrows the field.
+
+CrumbTech sends a disappointed email. Dave reads it and sighs.
+
+The PVR panel will have <span class="warning">questions</span> about this decision.
+
+<span class="warning">-10 COMPLIANCE (reduced competition)</span>
+<span class="info">+5 MORALE (at least it's quick)</span>
+
+${state.flags.did_pilot ? 'At least you have pilot data to justify the urgency.' : 'Without pilot data, the justification for speed is thin.'}`,
+  onEnter: (s) => { s.compliance -= 10; s.morale += 5; s.flags.route = 'framework'; },
+  choices: [
+    { text: '[1] Face the PVR panel', next: 'pvr_prep' }
+  ]
+},
+
+// ==========================================
+// PVR - PROJECT VALIDATION REVIEW
+// ==========================================
+pvr_prep: {
+  phase: 'DEFINE',
+  text: `<span class="highlight">═══ PROJECT VALIDATION REVIEW ═══</span>
+<span class="dim">Sourcing Playbook Policy 3</span>
+<span class="warning">THE BOSS FIGHT OF PROCUREMENT</span>
+
+The PVR panel consists of:
+- An IPA Reviewer (stern)
+- A Cabinet Office Commercial Director (sterner)
+- An independent technical assessor (sternest)
+- Someone from the Treasury (just there to say no)
+
+They've read your documents. They have <span class="warning">questions</span>.
+
+Your compliance score is <span class="${state.compliance >= 70 ? 'success' : 'warning'}">${state.compliance}%</span>.
+
+The panel chair opens proceedings:
+
+<span class="dim">"Right. The National Biscuit Distribution System. Let's start with why this can't wait and why it needs &pound;50 million of taxpayers' money."</span>
+
+How do you open?`,
+  choices: [
+    { text: '[1] Lead with the business case and Should Cost Model', next: 'pvr_business_case' },
+    { text: '[2] Lead with the risk of NOT doing it (the BISCUIT-1 fire)', next: 'pvr_risk_led' },
+    { text: '[3] Lead with the Minister\'s priority (political angle)', next: 'pvr_political' }
+  ]
+},
+
+pvr_business_case: {
+  phase: 'DEFINE',
+  text: `<span class="success">SOLID APPROACH.</span>
+
+You present:
+- &pound;42M annual biscuit spend across 47 departments
+- 23% distribution wastage under current system
+- Should Cost Model showing &pound;38-53M investment
+- Projected savings of &pound;8M/year from efficiency gains
+- 6-year payback period
+
+The Treasury representative's eyebrow rises. <span class="dim">"So it pays for itself in 6 years?"</span>
+
+<span class="info">"Yes. And the current system literally caught fire last month."</span>
+
+Keith has provided photographic evidence of the BISCUIT-1 fire. It's compelling.
+
+${state.flags.did_pilot ? '<span class="success">Your pilot data validates the requirements. The panel is impressed.</span>' : '<span class="warning">The panel notes the absence of pilot data. "How do you know the requirements are right?"</span>'}
+
+<span class="success">+10 COMPLIANCE</span>`,
+  onEnter: (s) => { s.compliance += 10; },
+  choices: [
+    { text: '[1] Address their technical questions', next: 'pvr_technical' }
+  ]
+},
+
+pvr_risk_led: {
+  phase: 'DEFINE',
+  text: `You open with Keith's photo of the BISCUIT-1 server rack on fire.
+
+<span class="warning">"This is what happened on Tuesday the 14th. The system runs on hardware from 2003. The original developer has retired. The source code is LOST. This isn't a matter of if it fails permanently, but when."</span>
+
+Silence in the room.
+
+The IPA reviewer: <span class="dim">"...Is that actually on fire?"</span>
+
+Keith: <span class="dim">"It was. We put it out with a fire extinguisher and a Bourbon Cream. Long story."</span>
+
+<span class="success">+15 COMPLIANCE | The urgency is established.</span>
+
+The Treasury representative puts down their "NO" stamp, at least temporarily.`,
+  onEnter: (s) => { s.compliance += 15; },
+  choices: [
+    { text: '[1] Now present the business case', next: 'pvr_technical' }
+  ]
+},
+
+pvr_political: {
+  phase: 'DEFINE',
+  text: `<span class="warning">"The Minister has made this a priority-"</span>
+
+The IPA reviewer interrupts: <span class="warning">"We don't approve projects because Ministers want them. We approve them because the business case stands up. What's your Should Cost Model?"</span>
+
+<span class="warning">-10 MORALE (rough start)</span>
+
+You quickly pivot to the numbers. The panel appreciates the recovery but your opening has set a slightly adversarial tone.
+
+The Treasury representative writes "POLITICAL PRESSURE?" in their notebook. This is not ideal.
+
+<span class="dim">Note to self: lead with evidence, not politics. The Playbook is policy-neutral for a reason.</span>`,
+  onEnter: (s) => { s.morale -= 10; },
+  choices: [
+    { text: '[1] Recover with the technical and financial case', next: 'pvr_technical' }
+  ]
+},
+
+pvr_technical: {
+  phase: 'DEFINE',
+  text: `The technical assessor leans forward:
+
+<span class="dim">"Three questions. One: how will you handle the BISCUIT-1 legacy data migration? Two: what's your risk allocation approach? Three: have you considered resolution planning if the supplier fails mid-delivery?"</span>
+
+<span class="info">Risk Allocation (Policy 8)</span> and <span class="info">Resolution Planning (Policy 11)</span> - the Playbook's cross-cutting policies.
+
+You have prepared for this. Mostly.`,
+  choices: [
+    { text: '[1] Present your detailed risk register and resolution plan', next: 'pvr_pass' },
+    { text: '[2] Admit resolution planning needs more work (honest)', next: 'pvr_honest' },
+    { text: '[3] Bluff confidently about resolution planning', next: 'pvr_bluff' }
+  ]
+},
+
+pvr_pass: {
+  phase: 'DEFINE',
+  text: `You present:
+
+<span class="info">RISK ALLOCATION:</span>
+- Technology risk: SUPPLIER (they build it, they own the risk)
+- Demand risk: SHARED (government provides forecasts, supplier handles spikes)
+- Integration risk: SHARED (legacy system is unpredictable)
+- Force majeure: STANDARD (neither party liable for biscuit shortages caused by acts of God)
+
+<span class="info">RESOLUTION PLAN:</span>
+- All source code held in government escrow
+- 90-day transition period written into contract
+- Parallel running with BISCUIT-1 for first 6 months
+- Named resolution team identified
+
+The panel exchanges glances. The IPA reviewer makes a note.
+
+<span class="success">PVR RESULT: APPROVED (with conditions)</span>
+
+Conditions: quarterly progress reports to IPA, independent technical assurance at gateway reviews.
+
+<span class="success">+25 COMPLIANCE | +20 MORALE</span>
+<span class="highlight">You have passed the PVR. You may proceed to PROCURE.</span>`,
+  onEnter: (s) => { s.compliance += 25; s.morale += 20; },
+  choices: [
+    { text: '[1] Celebrate with tea, then begin procurement', next: 'procure_begin' }
+  ]
+},
+
+pvr_honest: {
+  phase: 'DEFINE',
+  text: `<span class="info">"I'll be honest - the resolution plan needs more work. I've identified the key risks but I haven't fully developed the operational continuity arrangements."</span>
+
+The panel appreciates the honesty.
+
+IPA Reviewer: <span class="dim">"Thank you for not wasting our time with waffle. We'll give you a conditional pass. Resolution plan to be completed before ITT publication."</span>
+
+<span class="success">PVR RESULT: CONDITIONAL APPROVAL</span>
+
+Conditions:
+- Resolution plan completed within 4 weeks
+- Quarterly IPA reviews
+- Independent technical assurance
+
+<span class="success">+15 COMPLIANCE | +10 MORALE</span>
+<span class="info">Honesty is the best policy. Even in procurement.</span>`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 10; },
+  choices: [
+    { text: '[1] Complete the resolution plan and begin procurement', next: 'procure_begin' }
+  ]
+},
+
+pvr_bluff: {
+  phase: 'DEFINE',
+  text: `<span class="dim">"Yes, the resolution plan is fully developed-"</span>
+
+The technical assessor: <span class="warning">"Can I see it?"</span>
+
+You shuffle papers. The resolution plan is... a bullet point list on page 37 of your strategy document. It says "Resolution: TBC."
+
+<span class="warning">The panel has spotted the bluff.</span>
+
+IPA Reviewer: <span class="warning">"This PVR is DEFERRED. Come back when you have an actual resolution plan. Policy 11 is non-negotiable."</span>
+
+<span class="warning">-20 COMPLIANCE | -15 MORALE</span>
+<span class="warning">PVR: DEFERRED (2-week delay)</span>
+
+Your DG is going to hear about this. Your tea is cold. Everything is cold.`,
+  onEnter: (s) => { s.compliance -= 20; s.morale -= 15; },
+  choices: [
+    { text: '[1] Write the resolution plan properly and resubmit', next: 'pvr_resubmit' }
+  ]
+},
+
+pvr_resubmit: {
+  phase: 'DEFINE',
+  text: `Two weeks later, you return with a proper resolution plan. Source code escrow, transition arrangements, parallel running, the works.
+
+The panel approves, but the IPA reviewer adds: <span class="dim">"Don't waste our time again."</span>
+
+<span class="success">PVR RESULT: APPROVED (with enhanced conditions)</span>
+<span class="info">+10 COMPLIANCE (recovered)</span>
+
+You have lost two weeks but gained wisdom. And a reputation for "that person who tried to bluff the PVR panel."
+
+<span class="dim">This will follow you for approximately 3-5 years.</span>`,
+  onEnter: (s) => { s.compliance += 10; },
+  choices: [
+    { text: '[1] Proceed to procurement (humbled but approved)', next: 'procure_begin' }
+  ]
+},
+
+// ==========================================
+// PROCURE PHASE
+// ==========================================
+procure_begin: {
+  phase: 'PROCURE',
+  text: `<span class="highlight">═══ PHASE 3: PROCURE ═══</span>
+<span class="info">PROCUREMENT BEGINS</span>
+
+<span class="success">Tea consumed. PVR passed. Let's buy a biscuit system.</span>
+<span class="info">Tea cups consumed this project: ${state.teaCups + 1}</span>
+
+You publish the Contract Notice on <span class="highlight">Find a Tender</span>. The clock starts ticking.
+
+Under the Procurement Act 2023, you must allow adequate time for suppliers to respond. You set a <span class="highlight">30-day response window</span>.
+
+Day 1: 3 clarification questions arrive. All reasonable.
+Day 7: 14 more questions. One asks if "biscuit" includes "cake."
+Day 15: BiscuitBlockchain Ltd submits 47 questions about "distributed ledger compatibility."
+Day 28: You've answered 89 clarification questions. Your keyboard is worn smooth.
+
+<span class="info">DEADLINE DAY: 6 bids received.</span>`,
+  onEnter: (s) => { s.tea = 100; s.teaCups++; },
+  choices: [
+    { text: '[1] Begin evaluation', next: 'evaluation' },
+    { text: '[2] Review the bids before formal evaluation', next: 'review_bids' }
+  ]
+},
+
+review_bids: {
+  phase: 'PROCURE',
+  text: `You review the 6 bids received:
+
+<span class="info">1. MegaLogistics PLC</span> - &pound;48M. Solid but uninspired. 400-page bid. Lots of clip art.
+
+<span class="info">2. CrumbTech</span> - &pound;38M. Innovative. Agile approach. ${state.flags.split_lots ? 'Bidding for Lots 2 & 3.' : 'Lean team, ambitious.'}
+
+<span class="info">3. DunkData</span> - &pound;42M. Strong analytics. "Predictive Biscuit Intelligence" feature. ${state.flags.split_lots ? 'Bidding for Lot 2.' : ''}
+
+<span class="info">4. GlobalServe International</span> - &pound;55M. Over budget. Bid reads like it was written for a different project with "biscuit" find-and-replaced in.
+
+<span class="info">5. Public Sector Solutions Ltd</span> - &pound;44M. Competent but their reference is from 2019.
+
+<span class="info">6. BiscuitBlockchain Ltd</span> - &pound;62M. Proposes putting every Rich Tea on "the blockchain." 12 pages about NFTs. No relevant experience.
+
+Time to evaluate properly.`,
+  choices: [
+    { text: '[1] Proceed to formal evaluation', next: 'evaluation' }
+  ]
+},
+
+evaluation: {
+  phase: 'PROCURE',
+  text: `<span class="info">EVALUATION</span>
+<span class="dim">Procurement Act 2023: Assessment of tenders</span>
+
+Your evaluation panel:
+- You (Commercial lead)
+- Dave (Technical evaluator)
+- Keith (Operational evaluator)
+- Sandra (Financial evaluator)
+- An independent moderator (to stop arguments)
+
+The scoring is tense. After three days of evaluation:
+
+<span class="highlight">SCORES (Quality/Price/Social Value):</span>
+1. CrumbTech:      82/85/90 = <span class="success">85.7</span>
+2. MegaLogistics:  78/75/60 = <span class="info">73.3</span>
+3. DunkData:       80/80/85 = <span class="info">81.7</span>
+4. PSS Ltd:        65/78/50 = <span class="dim">64.3</span>
+5. GlobalServe:    45/40/30 = <span class="dim">38.3</span>
+6. BiscuitBlockchain: 10/5/15 = <span class="warning">10.0</span>
+
+${state.flags.route === 'competitive' ? 'Under Competitive Procedure with Negotiation, you can now negotiate with the top bidders.' : 'The scores are clear.'}
+
+CrumbTech is leading, but they're the SME. Can they deliver at this scale?`,
+  choices: [
+    { text: '[1] Award to CrumbTech (highest score)', next: 'award_crumbtech' },
+    { text: '[2] Negotiate with top 2 (CrumbTech & DunkData)', next: 'negotiate_top2' },
+    { text: '[3] Run due diligence on CrumbTech first (Policy 10)', next: 'due_diligence' }
+  ]
+},
+
+negotiate_top2: {
+  phase: 'PROCURE',
+  text: `${state.flags.route !== 'competitive' ? '<span class="warning">You didn\'t choose Competitive Procedure with Negotiation... but let\'s say you did, for the sake of a good story.</span>\n\n' : ''}You enter negotiations with CrumbTech and DunkData.
+
+<span class="info">CrumbTech</span> offers to partner with a larger firm for infrastructure support, addressing your scale concerns. They reduce price to &pound;36M.
+
+<span class="info">DunkData</span> enhances their "Predictive Biscuit Intelligence" offering and adds the Emergency Jaffa Cake Button as standard. Price holds at &pound;42M.
+
+After two rounds of negotiation:
+
+<span class="highlight">FINAL SCORES:</span>
+CrumbTech: <span class="success">88.2</span> (improved on delivery assurance)
+DunkData:  <span class="info">84.5</span> (improved on innovation)
+
+The gap has widened. CrumbTech is your winner.
+
+But first: <span class="highlight">due diligence</span>.`,
+  onEnter: (s) => { s.flags.negotiated = true; },
+  choices: [
+    { text: '[1] Run due diligence on CrumbTech', next: 'due_diligence' }
+  ]
+},
+
+due_diligence: {
+  phase: 'PROCURE',
+  text: `<span class="info">DUE DILIGENCE</span>
+<span class="dim">Sourcing Playbook Policy 10: Economic & Financial Standing</span>
+
+You assess CrumbTech's financial viability using the <span class="highlight">Financial Viability Risk Assessment Tool</span>.
+
+Findings:
+<span class="success">+ Profitable for 5 consecutive years</span>
+<span class="success">+ Strong client references (Tesco, Sainsbury's)</span>
+<span class="success">+ No adverse credit history</span>
+<span class="warning">- Annual turnover &pound;25M (contract value exceeds turnover)</span>
+<span class="warning">- 85 employees (will need to recruit)</span>
+
+The turnover issue is a <span class="warning">risk</span>. The Playbook says you should assess whether the supplier can sustain delivery.
+
+CrumbTech's CEO presents their growth plan and the partnership with InfraServe Ltd for infrastructure support.
+
+What's your call?`,
+  choices: [
+    { text: '[1] Accept - the partnership mitigates the risk', next: 'accept_crumbtech' },
+    { text: '[2] Request additional financial guarantees', next: 'request_guarantees' },
+    { text: '[3] Award to MegaLogistics instead (safe option)', next: 'safe_option' }
+  ]
+},
+
+accept_crumbtech: {
+  phase: 'PROCURE',
+  text: `You accept CrumbTech with the InfraServe partnership.
+
+The resolution plan (Policy 11) is updated to include step-in rights if either partner fails.
+
+<span class="success">+10 COMPLIANCE</span>
+
+Sandra from Finance signs off. The budget is within the Should Cost Model range. The Commercial Director approves.
+
+<span class="highlight">TIME TO AWARD THE CONTRACT.</span>
+
+But first, you must navigate the <span class="warning">Standstill Period</span> - 10 days where unsuccessful bidders can challenge your decision.
+
+You draft the award decision letters. Each unsuccessful bidder gets detailed feedback on their scores.
+
+BiscuitBlockchain Ltd's feedback letter is... diplomatically worded.`,
+  onEnter: (s) => { s.compliance += 10; },
+  choices: [
+    { text: '[1] Enter standstill period and award', next: 'standstill' }
+  ]
+},
+
+request_guarantees: {
+  phase: 'PROCURE',
+  text: `You request a parent company guarantee and a performance bond from CrumbTech.
+
+CrumbTech's CEO: <span class="dim">"We're an independent SME. We don't have a parent company. But we'll provide a performance bond of 10% of contract value."</span>
+
+InfraServe provides a guarantee covering the infrastructure elements.
+
+<span class="success">+15 COMPLIANCE (thorough due diligence)</span>
+
+This is textbook Policy 10. Sandra is impressed: <span class="dim">"Finally, someone who takes financial standing seriously."</span>
+
+The risk is mitigated. Time to award.`,
+  onEnter: (s) => { s.compliance += 15; },
+  choices: [
+    { text: '[1] Proceed to contract award', next: 'standstill' }
+  ]
+},
+
+safe_option: {
+  phase: 'PROCURE',
+  text: `You consider awarding to MegaLogistics PLC instead. They scored lower, but they're big, safe, established.
+
+Your evaluation moderator raises a hand: <span class="warning">"You can't award to the second-highest scorer without a documented, defensible reason. The evaluation criteria were set in advance. If CrumbTech met all the requirements and scored highest, awarding elsewhere would be challengeable."</span>
+
+The Procurement Act 2023 is very clear on this.
+
+<span class="warning">-10 COMPLIANCE (considered non-compliant award)</span>
+
+You can address your concerns through <span class="highlight">due diligence and contractual protections</span> instead.`,
+  onEnter: (s) => { s.compliance -= 10; },
+  choices: [
+    { text: '[1] Request financial guarantees from CrumbTech', next: 'request_guarantees' },
+    { text: '[2] Accept CrumbTech with enhanced contract protections', next: 'accept_crumbtech' }
+  ]
+},
+
+award_crumbtech: {
+  phase: 'PROCURE',
+  text: `Before awarding, you should run due diligence. The Sourcing Playbook's <span class="highlight">Policy 10</span> requires assessment of economic and financial standing.
+
+<span class="dim">Skipping due diligence on a &pound;38M contract would be... inadvisable.</span>`,
+  choices: [
+    { text: '[1] Run due diligence (the right thing to do)', next: 'due_diligence' }
+  ]
+},
+
+// ==========================================
+// STANDSTILL AND AWARD
+// ==========================================
+standstill: {
+  phase: 'PROCURE',
+  text: `<span class="info">STANDSTILL PERIOD: 10 DAYS</span>
+<span class="dim">Procurement Act 2023: Mandatory standstill</span>
+
+Award decision letters sent. The clock ticks.
+
+<span class="highlight">Day 1:</span> Silence. Ominous silence.
+<span class="highlight">Day 3:</span> MegaLogistics requests a debrief. Standard.
+<span class="highlight">Day 5:</span> GlobalServe sends a grumpy email. Nothing actionable.
+<span class="highlight">Day 7:</span> BiscuitBlockchain Ltd threatens legal action.
+<span class="highlight">Day 8:</span> BiscuitBlockchain Ltd's solicitor sends a letter.
+
+The letter argues that the evaluation was "biased against blockchain-based solutions" and demands the contract be re-evaluated.
+
+Your legal team reviews it.`,
+  choices: [
+    { text: '[1] Hold firm - the evaluation was fair and documented', next: 'hold_firm' },
+    { text: '[2] Panic and ask Legal for advice', next: 'legal_advice' }
+  ]
+},
+
+hold_firm: {
+  phase: 'PROCURE',
+  text: `Your evaluation was <span class="success">thoroughly documented</span>. Every score has a rationale. The moderator's notes are clean. The process was followed.
+
+Legal confirms: <span class="success">"The challenge has no merit. The evaluation criteria were published in advance, applied consistently, and the feedback was detailed and fair. BiscuitBlockchain scored 10 out of 100. There is no viable challenge."</span>
+
+<span class="highlight">Day 10:</span> Standstill period expires. No formal challenge filed.
+
+BiscuitBlockchain Ltd tweets something passive-aggressive about "government failing to embrace innovation." Everyone ignores it.
+
+<span class="success">CONTRACT AWARDED TO CRUMBTECH</span>
+<span class="success">+15 COMPLIANCE | +15 MORALE</span>
+
+You did it. Phase 3 complete. Now you have to actually <span class="highlight">manage</span> this thing.`,
+  onEnter: (s) => { s.compliance += 15; s.morale += 15; },
+  choices: [
+    { text: '[1] Begin contract implementation', next: 'manage_begin' }
+  ]
+},
+
+legal_advice: {
+  phase: 'PROCURE',
+  text: `Legal reviews the situation:
+
+<span class="info">"Pat, your documentation is ${state.compliance >= 70 ? 'solid' : 'adequate'}. The evaluation was fair. BiscuitBlockchain scored 10%. Their challenge is vexatious. We'll respond formally and the standstill will expire without issue."</span>
+
+They're right. You knew they were right. But it's always good to check.
+
+<span class="info">+5 MORALE (reassurance received)</span>
+
+<span class="highlight">Day 10:</span> Standstill expires. No challenge. Contract awarded.
+
+<span class="success">CONTRACT AWARDED TO CRUMBTECH</span>
+<span class="success">+10 COMPLIANCE</span>`,
+  onEnter: (s) => { s.morale += 5; s.compliance += 10; },
+  choices: [
+    { text: '[1] Begin contract implementation', next: 'manage_begin' }
+  ]
+},
+
+// ==========================================
+// MANAGE PHASE
+// ==========================================
+manage_begin: {
+  phase: 'MANAGE',
+  text: `<span class="highlight">═══ PHASE 4: MANAGE ═══</span>
+<span class="info">CONTRACT IMPLEMENTATION</span>
+
+<span class="success">CrumbTech has been mobilised.</span> The contract is signed. The work begins.
+
+Month 1: Requirements workshops. Going well.
+Month 2: Development sprints begin. Dave is in his element.
+Month 3: First integration test with BISCUIT-1.
+
+<span class="warning">BISCUIT-1 does not want to be integrated with.</span>
+
+The legacy system's data format is... unique. Dates are stored as "days since Gerald's birthday" (17 March 1958). Biscuit types are encoded as prime numbers. Nobody knows why.
+
+CrumbTech's lead developer: <span class="dim">"I've seen some things in my career. But this... this is art."</span>
+
+KPI tracking (Policy 7) begins. Early indicators:`,
+  choices: [
+    { text: '[1] Focus on resolving the integration issues', next: 'integration_crisis' },
+    { text: '[2] Escalate to the DG immediately', next: 'escalate_early' },
+    { text: '[3] Have CrumbTech build a translation layer', next: 'translation_layer' }
+  ]
+},
+
+integration_crisis: {
+  phase: 'MANAGE',
+  text: `You convene an emergency integration workshop.
+
+Dave reverse-engineers BISCUIT-1's data format over a long weekend fuelled by coffee and Jaffa Cakes. He produces a 3-page document titled: <span class="dim">"Gerald's Madness: A Technical Archaeology Report."</span>
+
+Key findings:
+- Biscuit type 2 = Digestive
+- Biscuit type 3 = Rich Tea
+- Biscuit type 5 = HobNob
+- Biscuit type 7 = Bourbon
+- Biscuit type 11 = Jaffa Cake (classified as biscuit, per Gerald)
+- Biscuit type 13 = Custard Cream
+- The number 4 crashes the system (it's not prime)
+
+<span class="success">The integration path is now clear.</span>
+
+CrumbTech builds an adapter. It works. Barely. But it works.
+
+<span class="success">+10 MORALE | Crisis averted</span>`,
+  onEnter: (s) => { s.morale += 10; },
+  choices: [
+    { text: '[1] Continue to contract monitoring', next: 'contract_monitoring' }
+  ]
+},
+
+escalate_early: {
+  phase: 'MANAGE',
+  text: `You escalate to the DG: <span class="dim">"The legacy system is more complex than anticipated. We may need additional budget for integration work."</span>
+
+The DG: <span class="warning">"How much more?"</span>
+
+<span class="dim">"Approximately &pound;2M."</span>
+
+<span class="warning">"Find it within the existing budget. And fix it."</span>
+
+Helpful. You redirect &pound;2M from the training budget (you'll deal with that later) and set Dave and CrumbTech to work on the integration.
+
+<span class="warning">-&pound;2M BUDGET (reallocated)</span>
+<span class="info">Problem acknowledged. Solution funded.</span>
+
+${state.flags.did_pilot ? '<span class="success">The pilot data helps - at least some integration issues were identified early.</span>' : '<span class="warning">A pilot would have caught this earlier... just saying.</span>'}`,
+  onEnter: (s) => { s.budget -= 2; },
+  choices: [
+    { text: '[1] Monitor the integration fix', next: 'contract_monitoring' }
+  ]
+},
+
+translation_layer: {
+  phase: 'MANAGE',
+  text: `CrumbTech builds a translation layer: <span class="highlight">"BISCUIT-1 to Modern English"</span> - a middleware that converts Gerald's prime number encoding into actual data.
+
+It's elegant. It's also the kind of thing that only exists because someone in 2003 thought encoding food items as prime numbers was a reasonable design decision.
+
+Dave provides archaeological documentation. The middleware is delivered on time and under budget.
+
+<span class="success">+15 MORALE | +5 COMPLIANCE</span>
+<span class="info">CrumbTech's innovation justifies the award decision.</span>
+
+Keith tests the system by ordering 30 Digestives. 30 Digestives arrive. He nearly cries with joy.
+
+<span class="dim">"You have no idea how long I've waited for this moment."</span>`,
+  onEnter: (s) => { s.morale += 15; s.compliance += 5; },
+  choices: [
+    { text: '[1] Proceed to ongoing contract monitoring', next: 'contract_monitoring' }
+  ]
+},
+
+contract_monitoring: {
+  phase: 'MANAGE',
+  text: `<span class="info">CONTRACT MONITORING</span>
+<span class="dim">Sourcing Playbook: Manage and Monitor</span>
+
+Six months in. The <span class="highlight">KPIs</span> (Policy 7) show:
+
+<span class="success">Biscuit delivery accuracy:  98.7% (target: 99.5%)</span>
+<span class="success">Next-day delivery rate:     97.2% (target: 95%)</span>
+<span class="success">System uptime:              99.9%</span>
+<span class="warning">Emergency Jaffa Cake response: 73 mins (target: 60 mins)</span>
+<span class="success">User satisfaction:          4.2/5</span>
+
+Almost there. The Jaffa Cake response time needs work, but the system is fundamentally operational.
+
+Then: <span class="warning">an incident.</span>
+
+The Home Office orders 500 packets of Digestives for a conference. The system delivers 500 packets... to the wrong Home Office building. The one in Croydon, not Westminster.
+
+<span class="dim">Croydon is now drowning in Digestives.</span>`,
+  choices: [
+    { text: '[1] Invoke the KPI failure mechanism calmly', next: 'kpi_calm' },
+    { text: '[2] Call CrumbTech immediately - this needs fixing NOW', next: 'kpi_urgent' },
+    { text: '[3] Check if the contract covers this scenario', next: 'kpi_contract' }
+  ]
+},
+
+kpi_calm: {
+  phase: 'MANAGE',
+  text: `You invoke the contractual <span class="highlight">service credit mechanism</span>. The KPI for delivery accuracy has been breached.
+
+CrumbTech identifies the bug: a postcode lookup error in the address validation module. The Home Office has two buildings with "2 Marsham Street" in different systems.
+
+Fix deployed within 24 hours. Service credits applied: &pound;15,000.
+
+CrumbTech's account manager: <span class="dim">"Fair cop. Our bug, our cost. Won't happen again."</span>
+
+<span class="success">This is how contract management should work.</span>
+<span class="success">+10 COMPLIANCE | Supplier relationship maintained</span>
+
+The Playbook emphasises <span class="highlight">"building and maintaining successful relationships"</span>. Not every issue needs to be a crisis.`,
+  onEnter: (s) => { s.compliance += 10; },
+  choices: [
+    { text: '[1] Continue to the final chapter', next: 'final_chapter' }
+  ]
+},
+
+kpi_urgent: {
+  phase: 'MANAGE',
+  text: `You call CrumbTech's CEO directly. At 10pm. On a Friday.
+
+<span class="dim">"500 packets of Digestives in Croydon. The Home Secretary is NOT happy. Fix it."</span>
+
+CrumbTech deploys a hotfix by Saturday morning. The bug was a postcode lookup error. It's fixed.
+
+But your relationship with CrumbTech is now slightly strained. Their CEO sends a polite but firm email:
+
+<span class="dim">"We appreciate the urgency, but the contract specifies a 48-hour SLA for non-critical issues. A biscuit misdelivery, while regrettable, is not a Priority 1 incident. We request that future escalations follow the agreed process."</span>
+
+They're right. The Playbook says to <span class="highlight">work with suppliers</span>, not against them.
+
+<span class="warning">-5 MORALE | Supplier relationship needs repair</span>`,
+  onEnter: (s) => { s.morale -= 5; },
+  choices: [
+    { text: '[1] Apologise and restore the relationship', next: 'repair_relationship' }
+  ]
+},
+
+repair_relationship: {
+  phase: 'MANAGE',
+  text: `You send a measured email acknowledging that you over-escalated. You propose a quarterly relationship review meeting over (what else) biscuits.
+
+CrumbTech appreciates it. The relationship is restored.
+
+<span class="success">+5 MORALE | Lesson learned about contract management</span>
+
+The Sourcing Playbook is clear: <span class="highlight">successful delivery requires partnership, not adversarial management</span>.`,
+  onEnter: (s) => { s.morale += 5; },
+  choices: [
+    { text: '[1] Continue to the final chapter', next: 'final_chapter' }
+  ]
+},
+
+kpi_contract: {
+  phase: 'MANAGE',
+  text: `You pull out the contract. Section 14.3: Service Levels.
+
+<span class="info">14.3.2: "Where delivery accuracy falls below 99.5% in any calendar month, a service credit of 0.5% of monthly charges shall apply per percentage point below target."</span>
+
+<span class="info">14.3.5: "Critical delivery failures (defined as >100 units misdelivered) shall trigger a Root Cause Analysis within 48 hours."</span>
+
+This is covered. Your contract drafting was thorough. You invoke both clauses.
+
+CrumbTech complies professionally. Root cause identified (postcode bug), fix deployed, service credit applied.
+
+<span class="success">+10 COMPLIANCE | Good contract = good outcomes</span>
+<span class="info">This is why the Playbook emphasises proper contract terms.</span>`,
+  onEnter: (s) => { s.compliance += 10; },
+  choices: [
+    { text: '[1] Proceed to the conclusion', next: 'final_chapter' }
+  ]
+},
+
+// ==========================================
+// FINALE
+// ==========================================
+final_chapter: {
+  phase: 'MANAGE',
+  text: `<span class="highlight">═══ ONE YEAR LATER ═══</span>
+
+The <span class="success">National Biscuit Distribution System v2.0</span> is live across all 47 government departments.
+
+<span class="info">FINAL KPIs:</span>
+<span class="success">Delivery accuracy:          99.7%</span>
+<span class="success">Next-day delivery:          98.9%</span>
+<span class="success">Emergency Jaffa Cake time:  47 minutes</span>
+<span class="success">User satisfaction:          4.6/5</span>
+<span class="success">Cost savings vs old system: &pound;9.2M/year</span>
+
+The Minister gives a speech: <span class="dim">"This government is delivering for the people. Even the biscuits arrive on time now."</span>
+
+The NAO review praises the procurement as <span class="success">"a model of good practice"</span>.${state.compliance >= 80 ? '\n\n<span class="success">Your compliance score of ' + state.compliance + '% is noted approvingly.</span>' : ''}
+
+Keith retires, finally at peace. His last act is to order 1 (one) packet of HobNobs. It arrives correctly.
+
+<span class="dim">He sheds a single tear.</span>`,
+  choices: [
+    { text: '[1] View your final score', next: 'game_over' }
+  ]
+},
+
+game_over: {
+  phase: 'COMPLETE',
+  text: `<span class="highlight">═══════════════════════════════════════</span>
+<span class="highlight">    PROCUREMENT QUEST: COMPLETE!</span>
+<span class="highlight">═══════════════════════════════════════</span>
+
+<span class="info">FINAL STATISTICS:</span>
+
+  Morale:            <span class="${state.morale >= 70 ? 'success' : 'warning'}">${state.morale}%</span>
+  Budget remaining:  <span class="${state.budget >= 40 ? 'success' : 'warning'}">&pound;${state.budget}M</span>
+  Compliance:        <span class="${state.compliance >= 80 ? 'success' : 'warning'}">${state.compliance}%</span>
+  Tea consumed:      <span class="info">${state.teaCups} cups</span>
+  Meetings attended: <span class="dim">${state.meetingsAttended}</span>
+  Consultants used:  <span class="${state.consultantsBriefed === 0 ? 'success' : 'warning'}">${state.consultantsBriefed}</span>
+
+<span class="highlight">YOUR RANK:</span> ${getRank(state)}
+
+<span class="dim">Based on the UK Government Sourcing Playbook</span>
+<span class="dim">& Procurement Pathway</span>
+<span class="dim">procurementpathway.civilservice.gov.uk</span>
+
+<span class="info">All 11 Sourcing Playbook policies were</span>
+<span class="info">referenced in this adventure. How many</span>
+<span class="info">did you follow?</span>
+
+<span class="highlight">PRESS ANY KEY TO PLAY AGAIN</span>`,
+  choices: [
+    { text: '[SPACE] Play Again', next: 'restart' }
+  ]
+},
+
+restart: {
+  phase: 'PLAN',
+  text: '',
+  onEnter: () => { resetGame(); }
+}
+
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+function getRank(s) {
+  const score = s.compliance + s.morale + (s.budget * 2) + (s.teaCups * 5);
+  if (score >= 350) return '<span class="success">PERMANENT SECRETARY OF PROCUREMENT</span>\nYou are a legend. The Sourcing Playbook should be renamed after you.';
+  if (score >= 280) return '<span class="success">SENIOR COMMERCIAL DIRECTOR</span>\nExcellent work. The NAO approves. Have a biscuit.';
+  if (score >= 220) return '<span class="info">GRADE 6 COMMERCIAL LEAD</span>\nSolid procurement professional. Room for improvement, but who hasn\'t accidentally hired a consultant?';
+  if (score >= 160) return '<span class="highlight">GRADE 7 COMMERCIAL OFFICER</span>\nYou survived. That\'s the main thing. Read the Playbook again.';
+  if (score >= 100) return '<span class="warning">HIGHER EXECUTIVE OFFICER</span>\nThe PVR panel remembers you. Not fondly. More tea needed.';
+  return '<span class="warning">EXECUTIVE OFFICER (PROBATION)</span>\nThe NAO has questions. Many questions. Your DG would like a word.';
+}
+
+function resetGame() {
+  state = {
+    morale: 100,
+    budget: 50,
+    compliance: 80,
+    tea: 100,
+    phase: 'PLAN',
+    currentNode: 'start',
+    history: [],
+    flags: {},
+    teaCups: 0,
+    acronymsUsed: 0,
+    consultantsBriefed: 0,
+    meetingsAttended: 0
+  };
+  showNode('start');
+}
+
+// ============================================
+// RENDERING ENGINE
+// ============================================
+
+function updateStats() {
+  const moraleBar = '█'.repeat(Math.max(0, Math.floor(state.morale / 10))) + '░'.repeat(Math.max(0, 10 - Math.floor(state.morale / 10)));
+  const complianceBar = '█'.repeat(Math.max(0, Math.floor(state.compliance / 10))) + '░'.repeat(Math.max(0, 10 - Math.floor(state.compliance / 10)));
+  const teaBar = state.tea >= 80 ? 'HOT' : state.tea >= 40 ? 'WARM' : 'COLD';
+  const teaColour = state.tea >= 80 ? 'success' : state.tea >= 40 ? 'highlight' : 'warning';
+
+  document.getElementById('stat-morale').innerHTML = `MORALE: ${moraleBar} ${state.morale}%`;
+  document.getElementById('stat-budget').innerHTML = `BUDGET: &pound;${state.budget}M`;
+  document.getElementById('stat-compliance').innerHTML = `COMPLIANCE: ${complianceBar} ${state.compliance}%`;
+  document.getElementById('stat-tea').innerHTML = `TEA: <span class="${teaColour}">${teaBar}</span>`;
+}
+
+function showNode(nodeId) {
+  if (nodeId === 'restart') {
+    resetGame();
+    return;
+  }
+
+  const node = nodes[nodeId];
+  if (!node) return;
+
+  state.currentNode = nodeId;
+  state.history.push(nodeId);
+
+  if (node.onEnter) {
+    node.onEnter(state);
+  }
+
+  if (node.phase) {
+    state.phase = node.phase;
+    const phaseBar = document.getElementById('phase-bar');
+    const phaseColours = {
+      'PLAN': 'background: #002bfb; color: #ffffff;',
+      'DEFINE': 'background: #d62816; color: #fffc36;',
+      'PROCURE': 'background: #00c525; color: #000;',
+      'MANAGE': 'background: #d433ff; color: #ffffff;',
+      'COMPLETE': 'background: #fffc36; color: #000;'
+    };
+    phaseBar.style.cssText = phaseColours[node.phase] || '';
+    phaseBar.textContent = `PHASE: ${node.phase}`;
+  }
+
+  // Render story text with typewriter-ish effect
+  const storyEl = document.getElementById('story-text');
+  storyEl.innerHTML = node.text;
+  storyEl.scrollTop = 0;
+
+  // Render choices
+  const choicesEl = document.getElementById('choices-area');
+  choicesEl.innerHTML = '';
+
+  node.choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = choice.text;
+    btn.addEventListener('click', () => {
+      // Decrease tea over time
+      state.tea = Math.max(0, state.tea - 15);
+      showNode(choice.next);
+    });
+    choicesEl.appendChild(btn);
+  });
+
+  // Keyboard shortcuts
+  const keyHandler = (e) => {
+    const num = parseInt(e.key);
+    if (num >= 1 && num <= node.choices.length) {
+      document.removeEventListener('keydown', keyHandler);
+      state.tea = Math.max(0, state.tea - 15);
+      showNode(node.choices[num - 1].next);
+    }
+    if (e.key === ' ' && nodeId === 'game_over') {
+      document.removeEventListener('keydown', keyHandler);
+      resetGame();
+    }
+  };
+  document.removeEventListener('keydown', window._lastKeyHandler);
+  window._lastKeyHandler = keyHandler;
+  document.addEventListener('keydown', keyHandler);
+
+  updateStats();
+}
+
+// ============================================
+// LOADING SCREEN
+// ============================================
+
+function showLoadingScreen() {
+  const titleEl = document.getElementById('title-art');
+  titleEl.textContent = TITLE_ART;
+
+  const container = document.getElementById('loading-stripes-container');
+  const colours = ['#ff331c', '#ff331c', '#00fbfe', '#00fbfe', '#ff40ff', '#ff40ff', '#00f92f', '#00f92f',
+                   '#ff331c', '#00fbfe', '#ff40ff', '#00f92f', '#fffc36', '#fffc36', '#002bfb', '#002bfb'];
+
+  colours.forEach((colour, i) => {
+    const stripe = document.createElement('div');
+    stripe.className = 'loading-stripes';
+    stripe.style.backgroundColor = colour;
+    stripe.style.animationDelay = `${i * 0.1}s`;
+    stripe.style.animationFillMode = 'forwards';
+    container.appendChild(stripe);
+  });
+
+  const startGame = () => {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('game-area').style.display = 'flex';
+    showNode('start');
+    document.removeEventListener('keydown', startGame);
+    document.getElementById('loading-screen').removeEventListener('click', startGame);
+  };
+
+  document.addEventListener('keydown', startGame);
+  document.getElementById('loading-screen').addEventListener('click', startGame);
+}
+
+// ============================================
+// INIT
+// ============================================
+window.addEventListener('DOMContentLoaded', showLoadingScreen);
+</script>
+</body>
+</html>
