@@ -14,6 +14,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    touch-action: manipulation;
   }
 
   body {
@@ -22,13 +27,17 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: monospace;
     overflow: hidden;
+    -webkit-text-size-adjust: 100%;
   }
 
   #screen {
     width: 768px;
     height: 576px;
+    max-height: 100vh;
+    max-height: 100dvh;
     background: #000;
     border: 32px solid #ccc;
     border-image: linear-gradient(135deg, #d4d4d4, #a0a0a0, #d4d4d4) 1;
@@ -185,9 +194,11 @@
     transition: background 0.1s, color 0.1s;
   }
 
-  .choice-btn:hover {
-    background: #002bfb;
-    color: #ffffff;
+  @media (hover: hover) {
+    .choice-btn:hover {
+      background: #002bfb;
+      color: #ffffff;
+    }
   }
 
   .choice-btn:active {
@@ -311,12 +322,108 @@
     animation: borderFlash 2s linear infinite;
   }
 
-  /* Responsive */
+  /* Responsive - tablets */
   @media (max-width: 832px) {
     #screen {
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       border: none;
+    }
+  }
+
+  /* Responsive - phones */
+  @media (max-width: 600px) {
+    #screen {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      border: none;
+    }
+
+    #game-area {
+      padding: 4px;
+    }
+
+    #header-bar {
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 4px 4px;
+      margin-bottom: 4px;
+    }
+
+    #phase-bar {
+      font-size: 10px;
+      padding: 2px 4px;
+      margin-bottom: 4px;
+    }
+
+    #story-text {
+      font-size: 13px;
+      line-height: 1.4;
+      padding: 6px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #choices-area {
+      padding: 4px;
+      min-height: 60px;
+    }
+
+    .choice-btn {
+      font-size: 13px;
+      padding: 10px 8px;
+      margin: 3px 0;
+      -webkit-tap-highlight-color: rgba(0, 43, 251, 0.3);
+    }
+
+    #stats-bar {
+      font-size: 9px;
+      padding: 3px 4px;
+      flex-wrap: wrap;
+      gap: 2px 8px;
+      justify-content: center;
+    }
+
+    .title-art {
+      font-size: 6px;
+      line-height: 1.0;
+    }
+
+    #loading-text {
+      font-size: 12px;
+      text-align: center;
+    }
+
+    #loading-screen {
+      padding: 16px;
+    }
+
+    .loading-stripes {
+      height: 10px;
+    }
+  }
+
+  /* Very small phones */
+  @media (max-width: 380px) {
+    .title-art {
+      font-size: 5px;
+    }
+
+    #header-bar {
+      font-size: 10px;
+    }
+
+    #story-text {
+      font-size: 12px;
+    }
+
+    .choice-btn {
+      font-size: 12px;
+    }
+
+    #stats-bar {
+      font-size: 8px;
     }
   }
 </style>
@@ -330,7 +437,7 @@
   <div id="loading-screen">
     <div class="title-art" id="title-art"></div>
     <div id="loading-stripes-container"></div>
-    <div id="loading-text">Program: procurement_quest<br>Bytes: 48K<br><br>Press any key to begin...</div>
+    <div id="loading-text">Program: procurement_quest<br>Bytes: 48K<br><br><span id="start-prompt">Tap or press any key to begin...</span></div>
   </div>
 
   <div id="game-area" style="display:none;">
@@ -2137,15 +2244,21 @@ function showLoadingScreen() {
     container.appendChild(stripe);
   });
 
-  const startGame = () => {
+  let gameStarted = false;
+  const startGame = (e) => {
+    if (gameStarted) return;
+    gameStarted = true;
+    if (e) e.preventDefault();
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('game-area').style.display = 'flex';
     showNode('start');
     document.removeEventListener('keydown', startGame);
+    document.removeEventListener('touchend', startGame);
     document.getElementById('loading-screen').removeEventListener('click', startGame);
   };
 
   document.addEventListener('keydown', startGame);
+  document.addEventListener('touchend', startGame);
   document.getElementById('loading-screen').addEventListener('click', startGame);
 }
 
